@@ -24,7 +24,6 @@ const INSTRUMENT_ICONS = {
   [INSTRUMENT_TYPES.HEXAOXILATOR]: '🎛️',
   [INSTRUMENT_TYPES.ZOOM_PEDAL]: '🎛️',
   [INSTRUMENT_TYPES.ATARIPUNK]: '🎮',
-  MIXER: '🎚️',
 };
 
 interface Connection {
@@ -249,6 +248,9 @@ export default function SongEditor() {
       setConnectingFrom(null);
     } else if (connectingFrom) {
       // Complete the connection
+      if (connectingFrom !== 'mixer' && instrumentId !== 'mixer') {
+        setConnections(prev => [...prev, { from: connectingFrom, to: 'mixer' }]);
+      }
       setConnections(prev => [...prev, { from: connectingFrom, to: instrumentId }]);
       setConnectingFrom(null);
     } else {
@@ -256,25 +258,21 @@ export default function SongEditor() {
     }
   };
 
-  const drawConnection = (from: DraggableInstrument, to: DraggableInstrument) => {
-    const fromX = from.position.x;
-    const fromY = from.position.y;
-    const toX = to.position.x;
-    const toY = to.position.y;
+  const removeConnection = (fromId: string, toId: string) => {
+    setConnections(prev => prev.filter(conn => !(conn.from === fromId && conn.to === toId)));
+  };
 
+  const drawConnection = (from: Position, to: Position) => {
+    const midY = (from.y + to.y) / 2;
+    
     return (
-      <svg
-        className="absolute top-0 left-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 0 }}
-      >
-        <path
-          d={`M ${fromX} ${fromY} C ${fromX} ${(fromY + toY) / 2}, ${toX} ${(fromY + toY) / 2}, ${toX} ${toY}`}
-          stroke="white"
-          strokeWidth="2"
-          fill="none"
-          strokeDasharray="4"
-        />
-      </svg>
+      <path
+        d={`M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`}
+        stroke="white"
+        strokeWidth="2"
+        fill="none"
+        strokeDasharray="4"
+      />
     );
   };
 
@@ -282,6 +280,29 @@ export default function SongEditor() {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  function formatDetailedTime(seconds: number) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  function generateTimeMarkers(duration: number) {
+    const markers = [];
+    const majorInterval = 60; // 1 minute
+    const minorInterval = 5; // 5 seconds
+    
+    for (let time = 0; time <= duration; time += minorInterval) {
+      const isMajor = time % majorInterval === 0;
+      markers.push({
+        time,
+        isMajor,
+        label: formatDetailedTime(time)
+      });
+    }
+    
+    return markers;
   }
 
   function safeParseInt(value: string): number {
@@ -380,7 +401,7 @@ export default function SongEditor() {
         
         {/* Central Mixer */}
         <div
-          className={`absolute p-4 rounded-lg ${INSTRUMENT_COLORS.MIXER} text-white shadow-lg`}
+          className={`absolute p-4 rounded-lg ${INSTRUMENT_COLORS.MIXER} text-white shadow-lg cursor-pointer transition-shadow hover:shadow-xl`}
           style={{
             left: canvasRef.current ? canvasRef.current.clientWidth / 2 - 50 : 350,
             top: canvasRef.current ? canvasRef.current.clientHeight / 2 - 50 : 250,
@@ -388,26 +409,38 @@ export default function SongEditor() {
             height: '100px',
             zIndex: 10,
           }}
+          onClick={() => handleStartConnection('mixer')}
         >
           <div className="flex flex-col items-center justify-center h-full">
             <Radio className="h-8 w-8 mb-2" />
             <span className="text-sm font-medium">Mixer</span>
+            <div className="mt-2 text-xs">
+              {connections.filter(c => c.to === 'mixer').length} inputs
+            </div>
           </div>
         </div>
 
         {/* Connection Lines */}
-        {connections.map((conn, idx) => {
-          const fromInst = draggableInstruments.find(i => i.id === conn.from);
-          const toInst = draggableInstruments.find(i => i.id === conn.to);
-          if (fromInst && toInst) {
-            return (
-              <React.Fragment key={`conn-${idx}`}>
-                {drawConnection(fromInst, toInst)}
-              </React.Fragment>
-            );
-          }
-          return null;
-        })}
+        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+          {connections.map((conn, idx) => {
+            const fromInst = draggableInstruments.find(i => i.id === conn.from);
+            const toInst = conn.to === 'mixer' 
+              ? { position: { 
+                  x: canvasRef.current ? canvasRef.current.clientWidth / 2 : 400,
+                  y: canvasRef.current ? canvasRef.current.clientHeight / 2 : 300
+                }}
+              : draggableInstruments.find(i => i.id === conn.to);
+
+            if (fromInst && toInst) {
+              return (
+                <g key={`conn-${idx}`}>
+                  {drawConnection(fromInst.position, toInst.position)}
+                </g>
+              );
+            }
+            return null;
+          })}
+        </svg>
 
         {/* Draggable Instruments */}
         {draggableInstruments.map((instrument) => (
@@ -435,7 +468,10 @@ export default function SongEditor() {
               <span className="text-sm font-medium text-center">{instrument.instrument_type}</span>
               <div className="flex space-x-1 mt-2">
                 <button
-                  onClick={() => handleStartConnection(instrument.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartConnection(instrument.id);
+                  }}
                   className={`p-1 rounded hover:bg-black hover:bg-opacity-20 ${
                     connectingFrom === instrument.id ? 'bg-black bg-opacity-20' : ''
                   }`}
@@ -444,7 +480,7 @@ export default function SongEditor() {
                   <Cable className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => {}}
+                  onClick={(e) => e.stopPropagation()}
                   className="p-1 rounded hover:bg-black hover:bg-opacity-20"
                   title="Settings"
                 >
@@ -461,37 +497,81 @@ export default function SongEditor() {
         <h2 className="text-lg font-medium text-gray-900 mb-6">Timeline</h2>
 
         <div className="mb-8">
-          <div className="relative h-32 bg-gray-100 rounded-lg overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-6 flex justify-between px-2 text-xs text-gray-500">
-              <span>0:00</span>
-              <span>{formatTime(Math.floor(song.duration / 2))}</span>
-              <span>{formatTime(song.duration)}</span>
+          <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+            {/* Time markers */}
+            <div className="absolute top-0 left-0 w-full h-8 bg-gray-200 border-b border-gray-300">
+              <div className="relative w-full h-full">
+                {generateTimeMarkers(song?.duration || 0).map(({ time, isMajor, label }) => (
+                  <div
+                    key={time}
+                    className="absolute top-0 flex flex-col items-center"
+                    style={{ left: `${(time / (song?.duration || 1)) * 100}%` }}
+                  >
+                    <div 
+                      className={`h-3 w-px ${isMajor ? 'bg-gray-600' : 'bg-gray-400'}`}
+                    />
+                    {isMajor && (
+                      <span className="text-xs text-gray-600 mt-1">{label}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="absolute top-6 left-0 w-full h-[calc(100%-1.5rem)] p-2">
-              {entries.map((entry) => (
+            {/* Grid lines */}
+            <div className="absolute top-8 left-0 w-full h-[calc(100%-2rem)] pointer-events-none">
+              {generateTimeMarkers(song?.duration || 0)
+                .filter(marker => marker.isMajor)
+                .map(({ time }) => (
+                  <div
+                    key={time}
+                    className="absolute top-0 h-full w-px bg-gray-300 opacity-50"
+                    style={{ left: `${(time / (song?.duration || 1)) * 100}%` }}
+                  />
+                ))}
+            </div>
+
+            {/* Timeline entries */}
+            <div className="absolute top-8 left-0 w-full h-[calc(100%-2rem)] p-2">
+              {entries.map((entry, index) => (
                 <div
                   key={entry.id}
-                  className="relative h-8 mb-2 last:mb-0"
-                  title={`${entry.instrument_type} (${formatTime(entry.start_time)} - ${formatTime(entry.end_time)})`}
+                  className="relative h-12 mb-2 last:mb-0"
+                  title={`${entry.instrument_type} (${formatDetailedTime(entry.start_time)} - ${formatDetailedTime(entry.end_time)})`}
                 >
                   <div
-                    className={`absolute h-full rounded-md ${INSTRUMENT_COLORS[entry.instrument_type as keyof typeof INSTRUMENT_COLORS]} bg-opacity-75 flex items-center justify-between px-2 text-xs text-white font-medium`}
+                    className={`absolute h-full rounded-md ${
+                      INSTRUMENT_COLORS[entry.instrument_type as keyof typeof INSTRUMENT_COLORS]
+                    } bg-opacity-75 flex items-center justify-between px-3 text-white font-medium group transition-all hover:bg-opacity-90`}
                     style={{
                       left: `${(entry.start_time / song.duration) * 100}%`,
                       width: `${((entry.end_time - entry.start_time) / song.duration) * 100}%`,
+                      zIndex: 10
                     }}
                   >
-                    <span className="truncate">{entry.instrument_type}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg" role="img" aria-label={entry.instrument_type}>
+                        {INSTRUMENT_ICONS[entry.instrument_type as keyof typeof INSTRUMENT_ICONS]}
+                      </span>
+                      <span className="truncate text-sm">{entry.instrument_type}</span>
+                    </div>
                     <button
                       onClick={() => deleteTimelineEntry(entry.id)}
-                      className="ml-2 p-1 hover:bg-black hover:bg-opacity-20 rounded"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black hover:bg-opacity-20 rounded transition-opacity"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Current time indicator */}
+            <div
+              className="absolute top-0 h-full w-px bg-indigo-600 z-20"
+              style={{ left: '0%' }}
+            >
+              <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-indigo-600 rounded-full" />
             </div>
           </div>
         </div>
