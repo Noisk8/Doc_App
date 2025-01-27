@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Music, Plus, Save, Trash2, Clock, ArrowLeft, Copy, Cable, X, Settings, Radio } from 'lucide-react';
+import {  Plus, Save, Trash2, ArrowLeft, Cable, Settings, Radio } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { type Song, type TimelineEntry, type InstrumentType } from '../../types/database';
 
@@ -272,6 +272,7 @@ export default function SongEditor() {
         strokeWidth="2"
         fill="none"
         strokeDasharray="4"
+        onContextMenu={(e) => handleCableContextMenu(e, `${from.x}-${to.x}`)}
       />
     );
   };
@@ -279,7 +280,7 @@ export default function SongEditor() {
   function formatTime(seconds: number) {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${remainingSeconds.toString( ).padStart(2, '0')}`;
   }
 
   function formatDetailedTime(seconds: number) {
@@ -309,6 +310,65 @@ export default function SongEditor() {
     const parsed = parseInt(value);
     return isNaN(parsed) ? 0 : parsed;
   }
+
+  // Agregar el handler para el menú contextual
+  const handleCableContextMenu = (e: React.MouseEvent, cableId: string) => {
+    e.preventDefault();
+    
+    const disconnectCable = () => {
+      // Remover la conexión del estado
+      setConnections(prevConnections => 
+        prevConnections.filter(conn => conn.id !== cableId)
+      );
+    };
+
+    // Crear menú contextual
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.innerHTML = `<button class="menu-item">Desconectar</button>`;
+    menu.style.position = 'fixed';
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+
+    // Agregar handler del click
+    menu.querySelector('button')?.addEventListener('click', () => {
+      disconnectCable();
+      document.body.removeChild(menu);
+    });
+
+    // Remover menú al hacer click fuera
+    const removeMenu = () => {
+      document.body.removeChild(menu);
+      document.removeEventListener('click', removeMenu);
+    };
+    document.addEventListener('click', removeMenu);
+
+    document.body.appendChild(menu);
+  };
+
+  // CSS necesario
+  const styles = `
+  .context-menu {
+    background: white;
+    border: 1px solid #ccc;
+    padding: 5px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+  }
+
+  .menu-item {
+    background: none;
+    border: none;
+    padding: 5px 10px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .menu-item:hover {
+    background: #f0f0f0;
+  }
+  `;
 
   if (loading) {
     return (
