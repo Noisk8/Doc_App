@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {  Plus, Save, Trash2, ArrowLeft, Cable, Settings, Radio } from 'lucide-react';
+import { Music, Plus, Save, Trash2, Clock, ArrowLeft, Copy, Cable, X, Settings, Radio } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { type Song, type TimelineEntry, type InstrumentType } from '../../types/database';
 
@@ -39,6 +39,37 @@ interface Position {
 interface DraggableInstrument extends TimelineEntry {
   position: Position;
 }
+
+const handleContextMenu = (e: React.MouseEvent, fromId: string, toId: string) => {
+  e.preventDefault();
+  removeConnection(fromId, toId);
+};
+
+const drawConnection = (from: Position, to: Position, fromId: string, toId: string) => {
+  const midY = (from.y + to.y) / 2;
+  
+  return (
+    <g>
+      <path
+        d={`M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`}
+        stroke="white"
+        strokeWidth="2"
+        fill="none"
+        strokeDasharray="4"
+        style={{ cursor: 'context-menu' }}
+        onContextMenu={(e) => handleContextMenu(e, fromId, toId)}
+      />
+      <path
+        d={`M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`}
+        stroke="transparent"
+        strokeWidth="10"
+        fill="none"
+        style={{ cursor: 'context-menu' }}
+        onContextMenu={(e) => handleContextMenu(e, fromId, toId)}
+      />
+    </g>
+  );
+};
 
 export default function SongEditor() {
   const { id } = useParams();
@@ -262,25 +293,10 @@ export default function SongEditor() {
     setConnections(prev => prev.filter(conn => !(conn.from === fromId && conn.to === toId)));
   };
 
-  const drawConnection = (from: Position, to: Position) => {
-    const midY = (from.y + to.y) / 2;
-    
-    return (
-      <path
-        d={`M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`}
-        stroke="white"
-        strokeWidth="2"
-        fill="none"
-        strokeDasharray="4"
-        onContextMenu={(e) => handleCableContextMenu(e, `${from.x}-${to.x}`)}
-      />
-    );
-  };
-
   function formatTime(seconds: number) {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString( ).padStart(2, '0')}`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   }
 
   function formatDetailedTime(seconds: number) {
@@ -310,65 +326,6 @@ export default function SongEditor() {
     const parsed = parseInt(value);
     return isNaN(parsed) ? 0 : parsed;
   }
-
-  // Agregar el handler para el menú contextual
-  const handleCableContextMenu = (e: React.MouseEvent, cableId: string) => {
-    e.preventDefault();
-    
-    const disconnectCable = () => {
-      // Remover la conexión del estado
-      setConnections(prevConnections => 
-        prevConnections.filter(conn => conn.id !== cableId)
-      );
-    };
-
-    // Crear menú contextual
-    const menu = document.createElement('div');
-    menu.className = 'context-menu';
-    menu.innerHTML = `<button class="menu-item">Desconectar</button>`;
-    menu.style.position = 'fixed';
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-
-    // Agregar handler del click
-    menu.querySelector('button')?.addEventListener('click', () => {
-      disconnectCable();
-      document.body.removeChild(menu);
-    });
-
-    // Remover menú al hacer click fuera
-    const removeMenu = () => {
-      document.body.removeChild(menu);
-      document.removeEventListener('click', removeMenu);
-    };
-    document.addEventListener('click', removeMenu);
-
-    document.body.appendChild(menu);
-  };
-
-  // CSS necesario
-  const styles = `
-  .context-menu {
-    background: white;
-    border: 1px solid #ccc;
-    padding: 5px;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-    z-index: 1000;
-  }
-
-  .menu-item {
-    background: none;
-    border: none;
-    padding: 5px 10px;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .menu-item:hover {
-    background: #f0f0f0;
-  }
-  `;
 
   if (loading) {
     return (
@@ -481,7 +438,7 @@ export default function SongEditor() {
         </div>
 
         {/* Connection Lines */}
-        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+        <svg className="absolute top-0 left-0 w-full h-full" style={{ zIndex: 0 }}>
           {connections.map((conn, idx) => {
             const fromInst = draggableInstruments.find(i => i.id === conn.from);
             const toInst = conn.to === 'mixer' 
@@ -494,7 +451,7 @@ export default function SongEditor() {
             if (fromInst && toInst) {
               return (
                 <g key={`conn-${idx}`}>
-                  {drawConnection(fromInst.position, toInst.position)}
+                  {drawConnection(fromInst.position, toInst.position, conn.from, conn.to)}
                 </g>
               );
             }
