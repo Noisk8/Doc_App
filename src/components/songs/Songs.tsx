@@ -170,7 +170,7 @@ export default function Songs() {
       <div className="text-center py-12">
       <Music className="mx-auto h-16 w-16 text-gray-400" />
       <h3 className="mt-4 text-xl font-medium text-gray-900">No songs yet</h3>
-      <p className="mt-2 text-lg text-gray-500">Get started by creating a new song.</p>
+      <p className="mt-2 text-lg text-gray-500">CREANDO UNA CANCIÓN.</p>
       <div className="mt-8">
       <button
       onClick={createSong}
