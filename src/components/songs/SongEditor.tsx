@@ -514,7 +514,7 @@ export default function SongEditor() {
         <h2 className="text-lg font-medium text-gray-900 mb-6">Timeline</h2>
 
         <div className="mb-8">
-          <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+          <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: "400px" }}>
             {/* Time markers */}
             <div className="absolute top-0 left-0 w-full h-8 bg-gray-200 border-b border-gray-300">
               <div className="relative w-full h-full">
@@ -548,39 +548,46 @@ export default function SongEditor() {
                 ))}
             </div>
 
-            {/* Timeline entries */}
-            <div className="absolute top-8 left-0 w-full h-[calc(100%-2rem)] p-2">
-              {entries.map((entry, index) => (
-                <div
-                  key={entry.id}
-                  className="relative h-12 mb-2 last:mb-0"
-                  title={`${entry.instrument_type} (${formatDetailedTime(entry.start_time)} - ${formatDetailedTime(entry.end_time)})`}
-                >
+            {/* Timeline entries with scrollable container */}
+            <div className="absolute top-8 left-0 w-full h-[calc(100%-2rem)] overflow-y-auto">
+              <div className="p-2">
+                {entries.map((entry) => (
                   <div
-                    className={`absolute h-full rounded-md ${
-                      INSTRUMENT_COLORS[entry.instrument_type as keyof typeof INSTRUMENT_COLORS]
-                    } bg-opacity-75 flex items-center justify-between px-3 text-white font-medium group transition-all hover:bg-opacity-90`}
-                    style={{
-                      left: `${(entry.start_time / song.duration) * 100}%`,
-                      width: `${((entry.end_time - entry.start_time) / song.duration) * 100}%`,
-                      zIndex: 10
-                    }}
+                    key={entry.id}
+                    className="relative h-16 mb-4 last:mb-0"
+                    title={`${entry.instrument_type} (${formatDetailedTime(entry.start_time)} - ${formatDetailedTime(entry.end_time)})`}
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg" role="img" aria-label={entry.instrument_type}>
-                        {INSTRUMENT_ICONS[entry.instrument_type as keyof typeof INSTRUMENT_ICONS]}
-                      </span>
-                      <span className="truncate text-sm">{entry.instrument_type}</span>
-                    </div>
-                    <button
-                      onClick={() => deleteTimelineEntry(entry.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black hover:bg-opacity-20 rounded transition-opacity"
+                    <div
+                      className={`absolute h-full rounded-md ${
+                        INSTRUMENT_COLORS[entry.instrument_type as keyof typeof INSTRUMENT_COLORS]
+                      } bg-opacity-75 flex items-center justify-between px-3 text-white font-medium group transition-all hover:bg-opacity-90`}
+                      style={{
+                        left: `${(entry.start_time / song.duration) * 100}%`,
+                        width: `${((entry.end_time - entry.start_time) / song.duration) * 100}%`,
+                        zIndex: 10
+                      }}
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xl" role="img" aria-label={entry.instrument_type}>
+                          {INSTRUMENT_ICONS[entry.instrument_type as keyof typeof INSTRUMENT_ICONS]}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold">{entry.instrument_type}</span>
+                          {entry.notes && (
+                            <span className="text-xs opacity-90">{entry.notes}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteTimelineEntry(entry.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black hover:bg-opacity-20 rounded transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {/* Current time indicator */}

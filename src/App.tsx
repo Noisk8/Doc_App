@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Music, Settings } from 'lucide-react';
 import Layout from './components/Layout';
@@ -6,9 +6,19 @@ import Login from './components/auth/Login';
 import Songs from './components/songs/Songs';
 import SongEditor from './components/songs/SongEditor';
 import { useAuthStore } from './stores/authStore';
+import { useThemeStore } from './stores/themeStore';
 
-function App() {
+export default function App() {
   const { session } = useAuthStore();
+  const { isDark } = useThemeStore();
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
 
   if (!session) {
     return <Login />;
@@ -26,5 +36,3 @@ function App() {
     </BrowserRouter>
   );
 }
-
-export default App;
